@@ -1,6 +1,6 @@
 # Supercharge Slackbots with RAG in real-time
 
-[Bytewax](https://bytewax.io), [Soflandia](https://softlandia.fi) and [AIcamp](https://aicamp.ai) invite you to join on Feb 16th, 2024 for a free virtual workshop.
+Join [Bytewax](https://bytewax.io), [Soflandia](https://softlandia.fi) and [AIcamp](https://aicamp.ai) for a free virtual workshop on Feb 16th, 2024.
 RSVP [here](https://www.aicamp.ai/event/eventdetails/W2024021609).
 
 - Skill level
