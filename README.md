@@ -68,7 +68,7 @@ Read more about installing Bytewax in [our documentation](https://bytewax.io/doc
 Get the Python client with
 
 ```bash
-pip install qdrant-client
+pip install 'qdrant-client[fastembed]'
 ```
 
 The client uses an in-memory database. You can even run it in Colab or Jupyter Notebook, no extra dependencies required. See an [example](https://colab.research.google.com/drive/1Bz8RSVHwnNDaNtDwotfPj0w7AYzsdXZ-?usp=sharing).
