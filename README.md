@@ -83,7 +83,7 @@ Here, we will be using Slack as an input source, and [`StdOutSink`](https://byte
 ## 4. LLM + RAG (40 minutes)
 The central part of the workshop covers LLM and RAG. We'll track what the conversation is about using LLM. We'll branch our stream to separate messages that contain a query. To generate responses to the queries, we will use LLM and RAG techniques. Let's take a look at the diagram: 
 
-![workshop_diagram.png]()
+![diagram](https://github.com/bytewax/workshop-supercharged-slackbots/assets/8543707/e2e3afa7-b15a-4bff-b79c-cffb528d3e01)
 
 * **[Slack API](https://api.slack.com/)**: This is where the workflow initiates, with the system receiving textual input through Slack's API.
 
