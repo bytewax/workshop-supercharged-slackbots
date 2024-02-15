@@ -12,14 +12,6 @@ RSVP [here](https://www.aicamp.ai/event/eventdetails/W2024021609).
     **Approx. 2 hours**
     
 
-## ****Prerequisites****
-
-TBD
-
-**Python modules**
-
-bytewax, qdrant-client, openai, fastembed
-
 ## Your Takeaway
 
 *Your takeaway from this workshop will be a RAG supercharged slackbot.*
@@ -59,17 +51,12 @@ Bytewax currently supports the following versions of Python: 3.8, 3.9, 3.10 and 
 Once you have your environment set up, you can install Bytewax. We recommend that you pin the version of Bytewax that you are using in your project by specifying the version of Bytewax that you wish to install:
 
 ```bash
-pip install bytewax==0.18.1
+pip install -r requirements.txt
 ```
 
 Read more about installing Bytewax in [our documentation](https://bytewax.io/docs/getting-started/installation).
 
-### Install and configure the Qdrant vector database
-Get the Python client with
-
-```bash
-pip install 'qdrant-client[fastembed]'
-```
+### Install and configure Qdrant vector database
 
 The client uses an in-memory database. You can even run it in Colab or Jupyter Notebook, no extra dependencies required. See an [example](https://colab.research.google.com/drive/1Bz8RSVHwnNDaNtDwotfPj0w7AYzsdXZ-?usp=sharing).
 
