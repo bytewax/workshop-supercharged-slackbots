@@ -18,7 +18,7 @@ TBD
 
 **Python modules**
 
-bytewax, qdrant-client
+bytewax, qdrant-client, openai, fastembed
 
 ## Your Takeaway
 
