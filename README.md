@@ -56,9 +56,24 @@ pip install -r requirements.txt
 
 Read more about installing Bytewax in [our documentation](https://bytewax.io/docs/getting-started/installation).
 
+
 ### Install and configure Qdrant vector database
 
 The client uses an in-memory database. You can even run it in Colab or Jupyter Notebook, no extra dependencies required. See an [example](https://colab.research.google.com/drive/1Bz8RSVHwnNDaNtDwotfPj0w7AYzsdXZ-?usp=sharing).
+
+### Run the stream!
+
+Run the stream with:
+
+```bash
+python -m bytewax.run <module>
+```
+
+For example if your stream is defined in `my_stream.py` in the repository root, you would run:
+
+```bash
+python -m bytewax.run my_stream
+```
 
 ## 3. A basic data stream (20 minutes)
 This step is to build a basic data stream. The central concept of Bytewax is a dataflow, which provides the necessary building blocks for choreographing the flow of data. Within Bytewax, a dataflow is a Python object that outlines how data will flow from input sources, the transformations it will undergo, and how it will eventually be passed to the output sinks.
