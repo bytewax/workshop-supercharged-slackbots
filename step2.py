@@ -58,7 +58,7 @@ def _build_dataflow() -> Dataflow:
 
     # Filter the messages based on which Slack channel they were posted on.
     filtered_stream = op.filter(
-        "filter_channel", keyed_stream, channel_is("C06JETUAX2S")
+        "filter_channel", keyed_stream, channel_is(os.environ["SLACK_CHANNEL_ID"])
     )
 
     # Branch the stream into two: one for bot mentions, one for the rest
@@ -79,9 +79,7 @@ def _build_dataflow() -> Dataflow:
     windower = TumblingWindow(
         length=timedelta(seconds=10), align_to=datetime(2024, 2, 1, tzinfo=timezone.utc)
     )
-    windowed_messages = op.window.collect_window(
-        "window", messages, clock, windower
-    )
+    windowed_messages = op.window.collect_window("window", messages, clock, windower)
 
     # Output the message windows into the console
     op.output("output", windowed_messages, StdOutSink())

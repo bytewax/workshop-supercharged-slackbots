@@ -28,7 +28,7 @@ def channel_is(channel: str) -> Callable[[SlackMessage], bool]:
     return _func
 
 
-def _build_dataflow():
+def _build_dataflow() -> Dataflow:
     # Create a bytewax stream object.
     flow = Dataflow("supercharged-slackbot")
 
@@ -39,7 +39,7 @@ def _build_dataflow():
     op.inspect_debug("debug", stream)
 
     # Filter the messages based on which Slack channel they were posted on.
-    stream = op.filter("filter_channel", stream, channel_is("C06JETUAX2S"))
+    stream = op.filter("filter_channel", stream, channel_is(os.environ["SLACK_CHANNEL_ID"]))
 
     # Output the messages into the console
     op.output("output", stream, StdOutSink())

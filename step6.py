@@ -255,7 +255,7 @@ def _build_dataflow() -> Dataflow:
 
     # Filter the messages based on which Slack channel they were posted on.
     filtered_stream = op.filter(
-        "filter_channel", keyed_stream, channel_is("C06JETUAX2S")
+        "filter_channel", keyed_stream, channel_is(os.environ["SLACK_CHANNEL_ID"])
     )
 
     # Branch the stream into two: one for bot mentions, one for the rest
