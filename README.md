@@ -16,6 +16,9 @@ RSVP [here](https://www.aicamp.ai/event/eventdetails/W2024021609).
 
 *Your takeaway from this workshop will be a RAG supercharged slackbot.*
 
+![demo](https://github.com/bytewax/workshop-supercharged-slackbots/assets/8543707/e63ae750-da72-40b8-875e-fb0bd254a7df)
+
+
 ## Table of content
 
 - Resources
