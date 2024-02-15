@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from typing import Callable
+from typing import NewType
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -24,6 +25,7 @@ from utils.connectors.slack import SlackSource
 
 log = logging.getLogger(__name__)
 
+Summary = NewType("Summary", str)
 
 def get_message_channel(msg: SlackMessage) -> str:
     """Extract the channel identifier from a message."""
@@ -75,13 +77,13 @@ Here is the current summary:
    {summary}
 """
 
-    def create_initial_state(self) -> str:
+    def create_initial_state(self) -> Summary:
         """Get initial state for the stateful stream step."""
-        return "No-one has said anything yet."
+        return Summary("No-one has said anything yet.")
 
     def __call__(
         self, previous_state: str, item: tuple[WindowMetadata, list[SlackMessage]]
-    ) -> tuple[str, str]:
+    ) -> tuple[Summary, Summary]:
         """This is called whenewer a new window of messages arrive.
 
         It gets the previous state as the first argument, and returns the new
@@ -103,7 +105,7 @@ Here is the current summary:
             max_tokens=1024,
         )
 
-        summary = completion.choices[0].message.content
+        summary = Summary(completion.choices[0].message.content)
 
         new_state = summary
         return new_state, summary
