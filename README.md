@@ -49,7 +49,7 @@ We will also go through the agenda and pre-shared materials.
 ## 2. Setup (20 minutes)
 
 ### Install and configure Bytewax into a Python environment
-Bytewax currently supports the following versions of Python: 3.8, 3.9, 3.10 and 3.11. 
+**Bytewax currently supports the following versions of Python: 3.9, 3.10 and 3.11.** 
 
 > We recommend creating a virtual environment for your project when installing Bytewax. For more information on setting up a virtual environment, see the [Python documentation](https://docs.python.org/3.11/tutorial/venv.html).
 
