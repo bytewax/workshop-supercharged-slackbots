@@ -31,7 +31,7 @@ RSVP [here](https://www.aicamp.ai/event/eventdetails/W2024021609).
 
 ## Resources
 
-- Join our Workshop Slack (this is the workspace where the bot is installed): https://join.slack.com/t/newworkspace-jtz9431/shared_invite/zt-2cesxqsgn-RDj6SUQYhTELZKDTOnoScA
+- Join our Workshop Slack (this is the workspace where the bot is installed): https://join.slack.com/t/bytewaxworkshop/shared_invite/zt-2cesxqsgn-RDj6SUQYhTELZKDTOnoScA
 - LLM API is provided to you by Softlandia, instructions will be shared in Workshop Slack when the workshop starts. You can also use your own API key with the standard OpenAI API, for example to use the latest and greatest language models. Instructions for that can be found in the .env -file.
 - A sample dataset is located in data/dataset.txt. Feel free to add additional documents.
 
