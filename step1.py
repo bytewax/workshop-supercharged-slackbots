@@ -18,6 +18,9 @@ from utils.connectors.slack import SlackMessage
 
 log = logging.getLogger(__name__)
 
+# Load environment variables from .env
+dotenv.load_dotenv()
+
 
 def channel_is(channel: str) -> Callable[[SlackMessage], bool]:
     """Predicate function to check if the message was posted on the given channel."""
@@ -28,33 +31,23 @@ def channel_is(channel: str) -> Callable[[SlackMessage], bool]:
     return _func
 
 
-def _build_dataflow() -> Dataflow:
-    # Create a bytewax stream object.
-    flow = Dataflow("supercharged-slackbot")
+# Create a bytewax stream object.
+flow = Dataflow("supercharged-slackbot")
 
-    # Data will be flowing in from the Slack stream.
-    stream = op.input("input", flow, SlackSource(url=os.environ["SLACK_PROXY_URL"]))
+# Data will be flowing in from the Slack stream.
+stream = op.input("input", flow, SlackSource(url=os.environ["SLACK_PROXY_URL"]))
 
-    # Inspect will show what entries are in the stream.
-    op.inspect_debug("debug", stream)
+# Inspect will show what entries are in the stream.
+op.inspect_debug("debug", stream)
 
-    # Filter the messages based on which Slack channel they were posted on.
-    stream = op.filter("filter_channel", stream, channel_is(os.environ["SLACK_CHANNEL_ID"]))
+# Filter the messages based on which Slack channel they were posted on.
+stream = op.filter("filter_channel", stream, channel_is(os.environ["SLACK_CHANNEL_ID"]))
 
-    # Output the messages into the console
-    op.output("output", stream, StdOutSink())
-
-    return flow
-
-
-# Load environment variables from .env
-dotenv.load_dotenv()
+# Output the messages into the console
+op.output("output", stream, StdOutSink())
 
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s %(levelname)-7s %(message)s",
     handlers=[logging.StreamHandler()],
 )
-
-# Dataflow needs to be assigned to a global variable called "flow"
-flow = _build_dataflow()

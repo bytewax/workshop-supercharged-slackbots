@@ -6,9 +6,7 @@ import queue
 import random
 import threading
 import time
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
 from typing import Iterable
 from typing import Optional
 
@@ -27,7 +25,7 @@ class _SlackSourcePartition(StatelessSourcePartition[SlackMessage]):
         self._queue = queue
         self._max_batch_size = max_batch_size
 
-    def next_batch(self, sched: datetime) -> Iterable[SlackMessage]:
+    def next_batch(self) -> Iterable[SlackMessage]:
         batch = []
         for _ in range(self._max_batch_size):
             try:
@@ -88,7 +86,7 @@ class SlackSource(DynamicSource[SlackMessage]):
 
     def build(
         self,
-        now: datetime,
+        step_id: str,
         worker_index: int,
         worker_count: int,
     ) -> _SlackSourcePartition:

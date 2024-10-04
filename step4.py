@@ -4,19 +4,17 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Callable
-from typing import NewType
+from typing import Callable, Optional, NewType
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 import dotenv
 
 import bytewax.operators as op
+import bytewax.operators.windowing as win
 from bytewax.connectors.stdio import StdOutSink
 from bytewax.dataflow import Dataflow
-from bytewax.operators.window import EventClockConfig
-from bytewax.operators.window import TumblingWindow
-from bytewax.operators.window import WindowMetadata
+from bytewax.operators.windowing import EventClock, TumblingWindower, WindowMetadata
 
 import openai
 
@@ -26,8 +24,22 @@ from utils.qdrant import DocumentDatabase
 
 log = logging.getLogger(__name__)
 
+# Load environment variables from .env
+dotenv.load_dotenv()
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)-7s %(message)s",
+    handlers=[logging.StreamHandler()],
+)
+
+
 Summary = NewType("Summary", str)
 Context = NewType("Context", list[str])
+
+
+def get_timestamp(msg) -> datetime:
+    return msg.timestamp
 
 
 def get_message_channel(msg: SlackMessage) -> str:
@@ -84,15 +96,18 @@ Here is the current summary:
         """Get initial state for the stateful stream step."""
         return Summary("No-one has said anything yet.")
 
-    def __call__(
-        self, previous_state: str, item: tuple[WindowMetadata, list[SlackMessage]]
+    def new_message(
+        self, previous_state: Optional[Summary], item: tuple[int, list[SlackMessage]]
     ) -> tuple[Summary, Summary]:
         """This is called whenewer a new window of messages arrive.
 
         It gets the previous state as the first argument, and returns the new
         state and an object to be passed downstream.
         """
-        _, messages = item  # we don't need the window metadata here
+        if previous_state is None:
+            previous_state = Summary("No one has said anything yet.")
+
+        _, messages = item  # we don't need the window id here
 
         system_prompt = self._prompt.format(summary=previous_state)
 
@@ -168,18 +183,16 @@ def _build_dataflow() -> Dataflow:
 
     # We use windowing to throttle the amount of requests we are making to the
     # LLM API.
-    clock = EventClockConfig(
-        lambda msg: msg.timestamp, wait_for_system_duration=timedelta(seconds=0)
-    )
-    windower = TumblingWindow(
+    clock = EventClock(get_timestamp, wait_for_system_duration=timedelta(seconds=0))
+    windower = TumblingWindower(
         length=timedelta(seconds=10), align_to=datetime(2024, 1, 1, tzinfo=timezone.utc)
     )
-    windowed_messages = op.window.collect_window("window", messages, clock, windower)
+    windowed_messages = win.collect_window("window", messages, clock, windower)
 
     # Create a stateful step which keeps track of the current discussion summary
     summarizer = Summarizer()
     summary_stream = op.stateful_map(
-        "summarize", windowed_messages, summarizer.create_initial_state, summarizer
+        "summarize", windowed_messages.down, summarizer.new_message
     )
 
     mentions_with_context = op.map(
