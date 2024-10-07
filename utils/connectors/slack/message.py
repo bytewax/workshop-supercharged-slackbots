@@ -1,4 +1,5 @@
 """A data structure representing a slack message."""
+
 import dataclasses
 from datetime import datetime
 
@@ -25,4 +26,4 @@ class SlackMessage:
 
     def __str__(self) -> str:
         """String-representation of the message, used by StdOutSink."""
-        return f"Channel {self.channel}: User {self.user} says \"{self.text}\""
+        return f'Channel {self.channel}: User {self.user} says "{self.text}"'

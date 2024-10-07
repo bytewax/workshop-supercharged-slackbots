@@ -1,4 +1,5 @@
 """A simple websocket proxy for combating the rate limits of the Slack API."""
+
 from __future__ import annotations
 
 import asyncio

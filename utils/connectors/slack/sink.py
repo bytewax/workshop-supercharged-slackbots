@@ -66,5 +66,7 @@ class SlackSink(DynamicSink[SlackMessage]):
                     log.error("Send failed, reconnecting...")
                     break
 
-    def build(self, worker_index: int, worker_count: int) -> _SlackSinkPartition:
+    def build(
+        self, step_id: str, worker_index: int, worker_count: int
+    ) -> _SlackSinkPartition:
         return _SlackSinkPartition(queue=self._queue)

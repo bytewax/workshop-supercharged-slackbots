@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Callable
-from typing import NewType
+from typing import Callable, Optional, NewType
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -13,11 +12,10 @@ import dotenv
 import dataclasses
 
 import bytewax.operators as op
+import bytewax.operators.windowing as win
 from bytewax.connectors.stdio import StdOutSink
 from bytewax.dataflow import Dataflow
-from bytewax.operators.window import EventClockConfig
-from bytewax.operators.window import TumblingWindow
-from bytewax.operators.window import WindowMetadata
+from bytewax.operators.windowing import EventClock, TumblingWindower, WindowMetadata
 
 import openai
 
@@ -27,8 +25,22 @@ from utils.qdrant import DocumentDatabase
 
 log = logging.getLogger(__name__)
 
+# Load environment variables from .env
+dotenv.load_dotenv()
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)-7s %(message)s",
+    handlers=[logging.StreamHandler()],
+)
+
+
 Summary = NewType("Summary", str)
 Context = NewType("Context", list[str])
+
+
+def get_timestamp(msg) -> datetime:
+    return msg.timestamp
 
 
 @dataclasses.dataclass
@@ -107,15 +119,18 @@ Here is the current summary:
         """Get initial state for the stateful stream step."""
         return Summary("No-one has said anything yet.")
 
-    def __call__(
-        self, previous_state: str, item: tuple[WindowMetadata, list[SlackMessage]]
+    def new_message(
+        self, previous_state: Optional[Summary], item: tuple[int, list[SlackMessage]]
     ) -> tuple[Summary, Summary]:
         """This is called whenewer a new window of messages arrive.
 
         It gets the previous state as the first argument, and returns the new
         state and an object to be passed downstream.
         """
-        _, messages = item  # we don't need the window metadata here
+        if previous_state is None:
+            previous_state = Summarizer.create_initial_state()
+
+        _, messages = item  # we don't need the window id here
 
         system_prompt = self._prompt.format(summary=previous_state)
 
@@ -155,8 +170,9 @@ def context_retriever(
 
 
 def join_summary_to_question(
-    previous_question_id: str | None, item: tuple[AugmentedMessage, Summary]
-) -> tuple[str, tuple[AugmentedMessage, bool]]:
+    previous_question_id: str | None,
+    item: tuple[AugmentedMessage | None, Summary | None],
+) -> tuple[str | None, tuple[AugmentedMessage | None, bool]]:
     """Join the summary data with the question message."""
     message, summary = item
 
@@ -171,104 +187,81 @@ def join_summary_to_question(
 
 
 def has_unique_flag_set(
-    item: tuple[str, tuple[AugmentedMessage, bool]],
+    item: tuple[str, tuple[AugmentedMessage | None, bool]],
 ) -> bool:
     _, (_, is_unique) = item
     return is_unique
 
 
-def _build_dataflow() -> Dataflow:
-    # Initialize a vector database in-memory
-    document_storage = DocumentDatabase(model="BAAI/bge-small-en-v1.5")
+# Initialize a vector database in-memory
+document_storage = DocumentDatabase(model="BAAI/bge-small-en-v1.5")
 
-    # Load the preloaded documents
-    # This step will calculate the embeddings for all of the chapters in the
-    # document.
-    log.info("Loading documents to document database...")
-    document_storage.upload_text_chapterwise("data/dataset.txt")
-    log.info("Document loading finished")
+# Load the preloaded documents
+# This step will calculate the embeddings for all of the chapters in the
+# document.
+log.info("Loading documents to document database...")
+document_storage.upload_text_chapterwise("data/dataset.txt")
+log.info("Document loading finished")
 
-    # Create a bytewax stream object.
-    flow = Dataflow("supercharged-slackbot")
+# Create a bytewax stream object.
+flow = Dataflow("supercharged-slackbot")
 
-    # Data will be flowing in from the Slack stream.
-    stream = op.input("input", flow, SlackSource(url=os.environ["SLACK_PROXY_URL"]))
+# Data will be flowing in from the Slack stream.
+stream = op.input("input", flow, SlackSource(url=os.environ["SLACK_PROXY_URL"]))
 
-    # Key the stream elements based on the channel id. In here we are not processing
-    # any channels separately, but this approach very much allows it. The windowing
-    # step requires a keyed stream, so that's why we are adding it here.
-    keyed_stream = op.key_on("key_on_channel", stream, get_message_channel)
+# Key the stream elements based on the channel id. In here we are not processing
+# any channels separately, but this approach very much allows it. The windowing
+# step requires a keyed stream, so that's why we are adding it here.
+keyed_stream = op.key_on("key_on_channel", stream, get_message_channel)
 
-    # Filter the messages based on which Slack channel they were posted on.
-    filtered_stream = op.filter(
-        "filter_channel", keyed_stream, channel_is(os.environ["SLACK_CHANNEL_ID"])
-    )
-
-    # Branch the stream into two: one for bot mentions, one for the rest
-    b_out = op.branch("is_mention", filtered_stream, is_mention)
-
-    messages = b_out.falses
-    mentions = b_out.trues
-
-    # Inspect what messages got to which stream
-    op.inspect_debug("message", messages)
-    op.inspect_debug("mention", mentions)
-
-    # We use windowing to throttle the amount of requests we are making to the
-    # LLM API.
-    clock = EventClockConfig(
-        lambda msg: msg.timestamp, wait_for_system_duration=timedelta(seconds=0)
-    )
-    windower = TumblingWindow(
-        length=timedelta(seconds=10), align_to=datetime(2024, 1, 1, tzinfo=timezone.utc)
-    )
-    windowed_messages = op.window.collect_window("window", messages, clock, windower)
-
-    # Create a stateful step which keeps track of the current discussion summary
-    summarizer = Summarizer()
-    summary_stream = op.stateful_map(
-        "summarize", windowed_messages, summarizer.create_initial_state, summarizer
-    )
-
-    # Augment the message with the context from document database
-    mentions_with_context = op.map(
-        "augment_with_context", mentions, context_retriever(document_storage)
-    )
-
-    # Join the two streams back together
-    joined = op.join(
-        "join_streams",
-        mentions_with_context,
-        summary_stream,
-        running=True,
-    )
-
-    # Our running join will emit a new item each time either of the upstreams changes.
-    # In our case we are only caring about the change in the mentions-stream.
-    # Thus, we only let each mention/question go through this step once by first
-    # flagging them with a `stateful_map` and filtering the flagged items with `filter`.
-    flagged = op.stateful_map(
-        "augment_with_summary", joined, lambda: None, join_summary_to_question
-    )
-
-    unique_questions = op.filter("filter_flagged", flagged, has_unique_flag_set)
-
-    questions = op.map("remove_flag_and_key", unique_questions, lambda x: x[1][0])
-
-    # Output the augmented messages into the console
-    op.output("output", questions, StdOutSink())
-
-    return flow
-
-
-# Load environment variables from .env
-dotenv.load_dotenv()
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)-7s %(message)s",
-    handlers=[logging.StreamHandler()],
+# Filter the messages based on which Slack channel they were posted on.
+filtered_stream = op.filter(
+    "filter_channel", keyed_stream, channel_is(os.environ["SLACK_CHANNEL_ID"])
 )
 
-# Dataflow needs to be assigned to a global variable called "flow"
-flow = _build_dataflow()
+# Branch the stream into two: one for bot mentions, one for the rest
+b_out = op.branch("is_mention", filtered_stream, is_mention)
+
+messages = b_out.falses
+mentions = b_out.trues
+
+# Inspect what messages got to which stream
+op.inspect_debug("message", messages)
+op.inspect_debug("mention", mentions)
+
+# We use windowing to throttle the amount of requests we are making to the
+# LLM API.
+clock = EventClock(get_timestamp, wait_for_system_duration=timedelta(seconds=0))
+windower = TumblingWindower(
+    length=timedelta(seconds=10), align_to=datetime(2024, 1, 1, tzinfo=timezone.utc)
+)
+windowed_messages = win.collect_window("window", messages, clock, windower)
+
+# Create a stateful step which keeps track of the current discussion summary
+summarizer = Summarizer()
+summary_stream = op.stateful_map(
+    "summarize", windowed_messages.down, summarizer.new_message
+)
+
+# Augment the message with the context from document database
+mentions_with_context = op.map(
+    "augment_with_context", mentions, context_retriever(document_storage)
+)
+
+# Join the two streams back together
+joined = op.join(
+    "join_streams", mentions_with_context, summary_stream, emit_mode="running"
+)
+
+# Our running join will emit a new item each time either of the upstreams changes.
+# In our case we are only caring about the change in the mentions-stream.
+# Thus, we only let each mention/question go through this step once by first
+# flagging them with a `stateful_map` and filtering the flagged items with `filter`.
+flagged = op.stateful_map("augment_with_summary", joined, join_summary_to_question)
+
+unique_questions = op.filter("filter_flagged", flagged, has_unique_flag_set)
+
+questions = op.map("remove_flag_and_key", unique_questions, lambda x: x[1][0])
+
+# Output the augmented messages into the console
+op.output("output", questions, StdOutSink())
